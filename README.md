@@ -13,8 +13,8 @@ Ingredients
 * Two through-hole LEDs, preferably red because that's supposed to get through your closed eyelids more easily.
 * At least two resistors in the 50-250 ohm range, low enough that you can see the lights in the dark, but not so high that your battery dies quickly.
 * A battery and a holder for it. I used a CR1220.
-* A momentary normally-closed switch (optional)
-* A slider switch or a jumper with a shunt (optional)
+* A momentary normally-closed switch (optional).
+* A slider switch or a jumper with a shunt (optional).
 
 The Circuit
 ===========
@@ -37,13 +37,13 @@ Then compile the firmware (or use the .hex) and burn it to your tiny.
 Operation
 =========
 
-When the circuit starts up, it puts both LEDs on for about two seconds, then goes to sleep for about 3.5 hours. It wakes up and pulses each LED, alternating back and forth at about 0.5Hz, for about 90 seconds, then goes back to sleep for half the previous sleep time (3.5/2 = 1.75 hours). This cycle repeats with at least 4 minutes separating each LED-pulsing phase.
+When the circuit starts up, it lights both LEDs for about two seconds, then turns them off and goes to sleep for about 3.5 hours. It wakes up and pulses each LED, alternating back and forth at about 0.5Hz, for about 90 seconds, then goes back to sleep for half the previous sleep time (3.5 ÷ 2 = 1.75 hours). This cycle repeats, halving the sleep time each cycle, with at least 4 minutes separating each LED-pulsing phase.
 
-If you want to see the LEDs blink right now, hold down the button. This ends the current sleep period.
+Assuming about 8 hours of sleep starting at 10:30pm, this program will first blink at about 2am, then will continue blinking more frequently with a lot of blinking during the final hour of sleep. This pattern corresponds to a typical human's REM-sleep schedule (short and sparse at the beginning of sleep, long and frequent toward morning).
 
-If you go to sleep at 10:30pm, this program will first blink at about 2am, then will continue blinking more frequently with a lot of blinking during the final hour of sleep (assuming you get up at 6am).
+To see the LEDs blink immediately, hold down the button. This ends the current sleep period.
 
 Disclaimer
 ==========
 
-As stated above, this project hasn't yet done anything for me. And if for any reason you're susceptible to wearing a circuit board on your head at night or having lights flashing in your eyes, you should probably avoid this project.
+As stated above, this project hasn't yet done anything for me. And if for any reason you have problems wearing a circuit board on your head at night or lights flashing in your eyes, you should probably avoid this project.
