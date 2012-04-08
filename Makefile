@@ -15,4 +15,4 @@ program : $(TARGET).hex
 	$(OBJ2HEX) -j .text -O ihex $< $@
 
 clean :
-	rm -f *.hex *.obj *.o
+	rm -f *.hex *.obj *.o a.out

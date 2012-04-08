@@ -24,6 +24,8 @@
 #define MACRO_WIDTH 1500
 #define MACRO_GAP 1500
 
+// Don't use this in real calculations unless you have room for the FP
+// library to be linked in
 #define SLOW_HZ (4.57)
 
 #define TRUE (1)
@@ -63,12 +65,13 @@ static void switch_to_DREAM() {
   reset_fast_interrupts_left();
 }
 
+#define START_DELAY_COUNT (8226)  // 30 * 60 * SLOW_HZ, 30 minutes
+#define MIN_DELAY_COUNT (1097)  // 4 * 60 * SLOW_HZ, 4 minutes
+static uint16_t short_delay_count = START_DELAY_COUNT;
 static void reset_slow_interrupts_left(int long_delay) {
   if (long_delay) {
-    interrupts_left = 3.8 * 60 * 60 * SLOW_HZ;  // 3.8 hours
+    interrupts_left = 62517; // 3.8 * 60 * 60 * SLOW_HZ, 3.8 hours
   } else {
-    uint16_t MIN_DELAY_COUNT = 4 * 60 * SLOW_HZ;  // 4 minutes
-    static uint16_t short_delay_count = 30 * 60 * SLOW_HZ;  // 30 minutes
     interrupts_left = short_delay_count;
     short_delay_count = short_delay_count / 2;
     if (short_delay_count < MIN_DELAY_COUNT) {
@@ -128,7 +131,7 @@ ISR(TIM0_OVF_vect) {
     break;
 
   case MODE_WAITING:
-    if (interrupts_left == 0)
+    if (interrupts_left == 0 || !(PINB & _BV(BUTTON)))
       switch_to_DREAM();
     break;
   }
@@ -160,7 +163,7 @@ int main(void) {
 
   // turn on LED,
   // delay before checking user input again
-  interrupts_left = SLOW_HZ * 2;
+  interrupts_left = 9; // SLOW_HZ * 2, about 2 seconds
   while (interrupts_left > 0) {
     leds_on();
   }
