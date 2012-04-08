@@ -1,14 +1,14 @@
-/*********************************************
-lucid13.c
-V 0.2b
-
-Lucid dreaming device
-
-Software by gmoon (Doug Garmon)
-Hardware by guyfrom7up (Brian _)
-
-* Chip type : ATtiny13
-*********************************************/
+/*
+ * lucid13.c
+ * forked from V 0.2b
+ * Lucid dreaming device
+ * Original project on http://www.instructables.com/id/The-Lucid-Dream-Machine/
+ *
+ * Software by gmoon (Doug Garmon)
+ * Hardware by guyfrom7up (Brian _)
+ *
+ * Chip type : ATtiny13 or ATtiny 13A
+ */
 #define F_CPU (1200000UL) // 1.2 MHz default clock
 
 #include <avr/io.h>
@@ -73,7 +73,7 @@ static void reset_slow_interrupts_left(int long_delay) {
     short_delay_count = short_delay_count / 2;
     if (short_delay_count < MIN_DELAY_COUNT) {
       short_delay_count = MIN_DELAY_COUNT;
-}
+    }
   }
 }
 
@@ -91,8 +91,7 @@ static void leds_off() {
   PORTB &= ~(LEDS);
 }
 
-// IRQ vector
-ISR (TIM0_OVF_vect) {
+ISR(TIM0_OVF_vect) {
   static uint8_t pwm;
   static uint16_t transition;
   static uint8_t current_led = LED_LEFT;
