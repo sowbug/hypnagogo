@@ -35,7 +35,6 @@ enum {
   MODE_WAITING,
   MODE_DREAM
 };
-
 uint8_t mode;
 
 #define BUTTON PB4          // button, pin 3 to ground
@@ -44,7 +43,7 @@ uint8_t mode;
 #define LEDS (LED_LEFT | LED_RIGHT)
 
 volatile uint16_t interrupts_left;
-uint16_t flash_count;
+uint8_t flash_count;
 
 void set_fast_timer() {
   TCCR0B = _BV(CS00); // new prescaler
@@ -60,30 +59,51 @@ static void reset_fast_interrupts_left() {
 
 static void switch_to_DREAM() {
   mode = MODE_DREAM;
-  flash_count = 120;  // This is a guess.
+  flash_count = 88;  // This is a guess.
   set_fast_timer();
   reset_fast_interrupts_left();
 }
 
-#define START_DELAY_COUNT (8226)  // 30 * 60 * SLOW_HZ, 30 minutes
-#define MIN_DELAY_COUNT (1097)  // 4 * 60 * SLOW_HZ, 4 minutes
-static uint16_t short_delay_count = START_DELAY_COUNT;
-static void reset_slow_interrupts_left(int long_delay) {
-  if (long_delay) {
-    interrupts_left = 62517; // 3.8 * 60 * 60 * SLOW_HZ, 3.8 hours
-  } else {
-    interrupts_left = short_delay_count;
-    short_delay_count = short_delay_count / 2;
-    if (short_delay_count < MIN_DELAY_COUNT) {
-      short_delay_count = MIN_DELAY_COUNT;
-    }
+/*
+ Assuming bedtime of 10:30pm, will flash on this schedule:
+
+ 2:00:00 AM
+ 3:45:00 AM
+ 4:37:30 AM
+ 5:03:45 AM
+ 5:16:52 AM
+ 5:23:26 AM
+ 5:27:26 AM
+ 5:31:26 AM
+ 5:35:26 AM
+ 5:39:26 AM
+ 5:43:26 AM
+ 5:47:26 AM
+ 5:51:26 AM
+ 5:55:26 AM
+ 5:59:26 AM
+ 6:03:26 AM
+
+*/
+#define START_INTERRUPT_COUNT (57582)  // 3.5 * 60 * 60 * SLOW_HZ, 30 minutes
+#define MIN_INTERRUPT_COUNT (1096)  // 4 * 60 * SLOW_HZ, 4 minutes
+static uint16_t interrupt_count = START_INTERRUPT_COUNT;
+static void reset_slow_interrupts_left() {
+  interrupts_left = interrupt_count;
+  interrupt_count = interrupt_count >> 1;
+  if (interrupt_count < MIN_INTERRUPT_COUNT) {
+    interrupt_count = MIN_INTERRUPT_COUNT;
   }
 }
 
-static void switch_to_WAITING(int long_delay) {
+static void set_slow_interrupts_to_min() {
+  interrupt_count = MIN_INTERRUPT_COUNT;
+}
+
+static void switch_to_WAITING() {
   mode = MODE_WAITING;
   set_slow_timer();
-  reset_slow_interrupts_left(long_delay);
+  reset_slow_interrupts_left();
 }
 
 static void leds_on() {
@@ -124,7 +144,7 @@ ISR(TIM0_OVF_vect) {
         }
         reset_fast_interrupts_left();
         if (--flash_count == 0) {
-          switch_to_WAITING(FALSE);  // back to waiting, but for a short time
+          switch_to_WAITING();
         }
       }
     }
@@ -171,9 +191,10 @@ int main(void) {
 
   // button still pressed? Enter immediate mode...
   if (!(PINB & _BV(BUTTON)) && button_pressed) {
+    set_slow_interrupts_to_min();
     switch_to_DREAM();
   } else {
-    switch_to_WAITING(TRUE);  // 1 = 3.8-hour delay
+    switch_to_WAITING();
   }
 
   // place the CPU into idle mode
