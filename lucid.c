@@ -123,7 +123,9 @@ ISR(TIM0_OVF_vect) {
   static uint16_t transition;
   static uint8_t current_led = LED_LEFT;
 
-  --interrupts_left;
+  if (interrupts_left != 0) {
+    --interrupts_left;
+  }
 
   switch (mode) {
   case MODE_DREAM:
