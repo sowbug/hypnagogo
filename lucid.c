@@ -114,6 +114,10 @@ static void leds_off() {
   PORTB &= ~(LEDS);
 }
 
+int is_button_pressed() {
+  return !(PINB & _BV(BUTTON));
+}
+
 ISR(TIM0_OVF_vect) {
   static uint8_t pwm;
   static uint16_t transition;
@@ -151,7 +155,7 @@ ISR(TIM0_OVF_vect) {
     break;
 
   case MODE_WAITING:
-    if (interrupts_left == 0 || !(PINB & _BV(BUTTON)))
+    if (interrupts_left == 0 || is_button_pressed())
       switch_to_DREAM();
     break;
   }
@@ -167,30 +171,22 @@ void irqinit (void) {
 }
 
 int main(void) {
-  uint8_t button_pressed;
-
   DDRB &= ~_BV(DDB4); // clear bit, input fire-button
   PORTB |= _BV(BUTTON); // set bit, enable pull-up resistor
 
   DDRB |= _BV(DDB3) | _BV(DDB2); // set output
 
-  // Check if button is pressed when powering up...
-  if (!(PINB & _BV(BUTTON)))
-    button_pressed = 1;
-
   // init the IRQ
   irqinit();
 
-  // turn on LED,
   // delay before checking user input again
+  leds_on();
   interrupts_left = 9; // SLOW_HZ * 2, about 2 seconds
   while (interrupts_left > 0) {
-    leds_on();
   }
   leds_off();
 
-  // button still pressed? Enter immediate mode...
-  if (!(PINB & _BV(BUTTON)) && button_pressed) {
+  if (is_button_pressed()) {
     set_slow_interrupts_to_min();
     switch_to_DREAM();
   } else {
