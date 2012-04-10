@@ -1,11 +1,11 @@
-Dream Machine: Firmware and design for lucid-dreaming goggles
-=============================================================
+Dream Machine: Firmware and Circuit Design for Lucid-Dreaming Goggles
+=====================================================================
 
 This is adapted from an [Instructables
 project](http://www.instructables.com/id/The-Lucid-Dream-Machine/). With
 a simple ATtiny13-based circuit, this firmware helps nudge your
 dreaming brain into an *Inception*-like state of awareness. At least,
-that's the theory.  So far, I have slept through the whole experience
+that's the theory. So far, I have slept through the whole experience
 and remembered nothing.
 
 Ingredients
