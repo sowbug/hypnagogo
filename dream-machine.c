@@ -1,13 +1,14 @@
 /*
- * lucid13.c
- * forked from V 0.2b
+ * Dream Machine
+ * https://github.com/sowbug/dream-machine/
+ *
  * Lucid dreaming device
  * Original project on http://www.instructables.com/id/The-Lucid-Dream-Machine/
  *
  * Software by gmoon (Doug Garmon)
  * Hardware by guyfrom7up (Brian _)
  *
- * Chip type : ATtiny13 or ATtiny 13A
+ * Chip type: ATtiny13 or ATtiny 13A
  */
 #define F_CPU (1200000UL) // 1.2 MHz default clock
 
@@ -54,7 +55,7 @@ enum {
 #define LED_RIGHT _BV(PB2)  // pin 7
 #define LEDS (LED_LEFT | LED_RIGHT)
 
-void set_fast_timer() {
+static void set_fast_timer() {
   TCCR0B = _BV(CS00);
 }
 
@@ -139,7 +140,7 @@ static void switch_to_DREAM() {
   reset_dream_interrupts_left();
 }
 
-int is_button_pressed() {
+static int is_button_pressed() {
   return !(PINB & _BV(BUTTON));
 }
 
@@ -207,7 +208,7 @@ ISR(TIM0_OVF_vect) {
 }
 
 // init the IRQ
-void init_irq (void) {
+static void init_irq (void) {
   set_slow_timer();
 
   // Enable timer overflow irq
@@ -230,7 +231,7 @@ int main(void) {
   sleep_mode();
 
   while (TRUE) {
-    // infinite loop--the IRQ does all the work...
+    // Infinite loop. The IRQ does all the work...
   }
 
   return 0;
