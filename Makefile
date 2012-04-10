@@ -2,7 +2,7 @@ CC=avr-gcc
 CFLAGS=-g -Os -Wall -mcall-prologues -mmcu=attiny13a -std=c99 -pedantic -Wundef
 OBJ2HEX=avr-objcopy 
 UISP=avrdude 
-TARGET=lucid
+TARGET=dream-machine
 PROGRAMMER=usbtiny
 
 program : $(TARGET).hex
