@@ -1,12 +1,10 @@
 /*
  * Dream Machine
  * https://github.com/sowbug/dream-machine/
+ * Hardware at https://github.com/sowbug/dream-machine-hw/
  *
- * Lucid dreaming device
- * Original project on http://www.instructables.com/id/The-Lucid-Dream-Machine/
- *
- * Software by gmoon (Doug Garmon)
- * Hardware by guyfrom7up (Brian _)
+ * Based on http://www.instructables.com/id/The-Lucid-Dream-Machine/
+ * by gmoon (Doug Garmon) and guyfrom7up (Brian _)
  *
  * Chip type: ATtiny13 or ATtiny 13A
  * Assuming default fuses:
@@ -44,7 +42,7 @@
 
 // Don't use this in real calculations unless you have room for the FP
 // library to be linked in
-#define SLOW_HZ (4.57)
+// #define SLOW_HZ (4.57)
 
 #define TRUE (1)
 #define FALSE (!TRUE)
@@ -104,12 +102,18 @@ static uint8_t flash_count;
 static uint16_t interrupt_count;
 static uint8_t current_led;
 static uint8_t button_was_pressed;
+static uint8_t quick_induction_count;
 static void reset_waiting_interrupts_left() {
   interrupts_left = interrupt_count;
   interrupt_count = interrupt_count >> 1;
   if (interrupt_count < MIN_INTERRUPT_COUNT) {
     interrupt_count = MIN_INTERRUPT_COUNT;
+    quick_induction_count++;
   }
+}
+
+static void start_nap_mode() {
+  interrupts_left = MIN_INTERRUPT_COUNT * 4;
 }
 
 static void reset_init_interrupts_left() {
@@ -249,8 +253,10 @@ ISR(TIM0_OVF_vect) {
       break;
 
     case STATE_WAITING:
-      if (was_button_pressed())
+      if (was_button_pressed()) {
+        start_nap_mode();
         switch_to_DREAM();
+      }
       break;
     }
   }
@@ -281,6 +287,7 @@ static void start_sleep_cycle() {
   set_slow_timer();
 
   interrupt_count = START_INTERRUPT_COUNT;
+  quick_induction_count = 0;
   switch_to_INIT();
 
   set_sleep_mode(SLEEP_MODE_IDLE);
@@ -301,8 +308,9 @@ int main(void) {
     leds_off();
     power_down();
     start_sleep_cycle();
-    while (state != STATE_POWER_DOWN)
+    while (state != STATE_POWER_DOWN && quick_induction_count < 15) {
       sleep_mode();
+    }
   }
   return 0;
 }
