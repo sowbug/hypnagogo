@@ -6,12 +6,8 @@
  * Based on http://www.instructables.com/id/The-Lucid-Dream-Machine/
  * by gmoon (Doug Garmon) and guyfrom7up (Brian _)
  *
- * Chip type: ATtiny13 or ATtiny 13A
- * Assuming default fuses:
- *   -U lfuse:w:0x6A:m
- *   -U hfuse:w:0xFF:m
- *   -U lock:w:0xFF:m
  */
+
 
 #include <avr/interrupt.h>
 #include <avr/io.h>
@@ -21,7 +17,7 @@
 
 // START MCU-SPECIFIC -------------------------------
 
-// For ATtiny13:
+// ATtiny13 or ATtiny 13A
 //
 // Button between pin 7 and ground
 // Left LED on pin 2
