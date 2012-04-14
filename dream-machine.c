@@ -72,14 +72,6 @@ static void leds_off() {
 
 // END MCU-SPECIFIC -------------------------------
 
-/* ramping fx increments */
-#define PWM_VAL 4
-#define TRANS_VAL 6
-
-/* the overall pulse width and delay between pulses */
-#define MACRO_WIDTH 1500
-#define MACRO_GAP 250
-
 // We use a sort of fixed-point decimal to let us compute durations with
 // reasonable precision without bringing in FPU code that wouldn't fit in
 // a small flash program space.
@@ -89,7 +81,7 @@ static void leds_off() {
 // For slow: "10" = CS02 | CS00 = clkIO / 1024 Hz
 // For fast: "0"  = CS00 = clkIO, no prescaling
 //
-#define SLOW_HZ_X_256 (F_CPU >> (10 + 8 - 8))  // 1171
+#define SLOW_HZ_X_256 (F_CPU >> (10 + 8 - 8))
 #define FAST_HZ_X_256 (F_CPU >> (0 + 8 - 8))
 
 #ifdef PRODUCTION
@@ -107,6 +99,23 @@ static void leds_off() {
   ((START_WAIT_DURATION_SECONDS * SLOW_HZ_X_256) >> 8)
 #define MIN_INTERRUPT_COUNT                           \
   ((MIN_WAIT_DURATION_SECONDS * SLOW_HZ_X_256) >> 8)
+
+// Overall pulse width and delay between pulses
+// The "+ 10" is 1024, which is close to dividing by 1,000 for msec -> sec
+#define PULSE_DURATION_MSEC (500)
+#define MACRO_WIDTH_MSEC (450)
+#define MACRO_WIDTH ((MACRO_WIDTH_MSEC * FAST_HZ_X_256) >> (8 + 10))
+#define MACRO_GAP_MSEC (PULSE_DURATION_MSEC - MACRO_WIDTH_MSEC)
+#define MACRO_GAP ((MACRO_GAP_MSEC * FAST_HZ_X_256) >> (8 + 10))
+
+// This number isn't CPU-speed dependent, but it must be an even
+// divisor of 256. It represents the granularity of the PWM's duty
+// cycle.
+#define PWM_VAL 4
+
+// Each cycle should add this number to reach 256 by the end of
+// MACRO_WIDTH cycles.
+#define TRANS_VAL (MACRO_WIDTH >> 8)
 
 enum {
   STATE_POWER_DOWN,
@@ -184,15 +193,6 @@ static void start_IDLE() {
   set_slow_timer();
   state = STATE_IDLE;
   reset_idle_interrupts_left();
-
-  // Hack: reset the button-pressed indicator. On the breadboard version
-  // of this circuit, I was going straight into nap mode after powering on
-  // with the button. I debounced and checked states, but nothing worked. I
-  // see nothing like this on the real hardware. I'm wondering whether the
-  // breadboard is noisy, or perhaps the ISP was sending ambiguous signals.
-  //////////
-
-  ///////////////////////was_button_pressed();
 }
 
 static void reset_dream_interrupts_left() {

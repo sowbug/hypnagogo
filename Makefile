@@ -29,6 +29,7 @@ prod: program
 
 fuse:
 	sudo $(UISP)  $(PROGRAMMER_ARGS) \
+    -e \
 	  -U lfuse:w:0x6A:m \
 		-U hfuse:w:0xFF:m
 
