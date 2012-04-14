@@ -12,7 +12,6 @@
  *   -U hfuse:w:0xFF:m
  *   -U lock:w:0xFF:m
  */
-#define F_CPU (1200000UL) // 1.2 MHz default clock
 
 #include <avr/io.h>
 #include <inttypes.h>
@@ -20,44 +19,22 @@
 #include <avr/sleep.h>
 #include <util/delay.h>
 
-/* ramping fx increments */
-#define PWM_VAL 4
-#define TRANS_VAL 6
 
-/* the overall pulse width and delay between pulses */
-#define MACRO_WIDTH 1500
-#define MACRO_GAP 250
+// START MCU-SPECIFIC -------------------------------
 
-#if 1
-// Normal
-#define START_INTERRUPT_COUNT (57678)  // 3.5 * 60 * 60 * SLOW_HZ, 30 minutes
-#define MIN_INTERRUPT_COUNT (2197)  // 8 * 60 * SLOW_HZ, 8 minutes
-#define FLASH_COUNT (64)
-#else
-// Debugging
-#define START_INTERRUPT_COUNT (69)  // 15 seconds
-#define MIN_INTERRUPT_COUNT (14)  // 3 seconds
-#define FLASH_COUNT (4)
-#endif
-
-// Don't use this in real calculations unless you have room for the FP
-// library to be linked in
-// #define SLOW_HZ (4.57)
-
-#define TRUE (1)
-#define FALSE (!TRUE)
-
-enum {
-  STATE_POWER_DOWN,
-  STATE_INIT,
-  STATE_WAITING,
-  STATE_DREAM
-};
-
-#define BUTTON PB2          // button, pin 7 to ground
-#define LED_LEFT _BV(PB3)   // pin 2
-#define LED_RIGHT _BV(PB4)  // pin 3
+// For ATtiny13:
+//
+// Button between pin 7 and ground
+// Left LED on pin 2
+// Right LED on pin 3
+//
+#define BUTTON _BV(PB2)
+#define BUTTON_DD _BV(DDB2)
 #define LEDS (LED_LEFT | LED_RIGHT)
+#define LED_LEFT _BV(PB3)
+#define LED_LEFT_DD _BV(DDB3)
+#define LED_RIGHT _BV(PB4)
+#define LED_RIGHT_DD _BV(DDB4)
 
 static void set_fast_timer() {
   TCCR0B = _BV(CS00);
@@ -65,6 +42,29 @@ static void set_fast_timer() {
 
 static void set_slow_timer() {
   TCCR0B = _BV(CS02) | _BV(CS00);
+}
+
+static void enable_timer_prr() {
+  PRR = _BV(PRADC);  // Timer on, ADC off.
+}
+
+static void disable_timer_prr() {
+  PRR = _BV(PRADC) | _BV(PRTIM0);  // All peripherals off.
+}
+
+static void enable_timer_interrupt() {
+  TIMSK0 = _BV(TOIE0);
+}
+
+static void enable_pin_interrupts() {
+  GIMSK = _BV(PCIE);  // Enable pin-change interrupts
+  PCMSK = _BV(PCINT2);  // Mask off all but the button pin for interrupts
+}
+
+static void set_port_state() {
+  DDRB &= ~BUTTON_DD; // set button to input
+  PORTB |= BUTTON; // enable button's pull-up resistor
+  DDRB |= LED_LEFT_DD | LED_RIGHT_DD; // set LEDs to output
 }
 
 static void leds_on() {
@@ -75,14 +75,58 @@ static void leds_off() {
   PORTB &= ~(LEDS);
 }
 
-static volatile uint8_t state;
-static uint16_t interrupts_left;
-static uint8_t flash_count;
+// END MCU-SPECIFIC -------------------------------
+
+/* ramping fx increments */
+#define PWM_VAL 4
+#define TRANS_VAL 6
+
+/* the overall pulse width and delay between pulses */
+#define MACRO_WIDTH 1500
+#define MACRO_GAP 250
+
+// We use a sort of fixed-point decimal to let us compute durations with
+// reasonable precision without bringing in FPU code that wouldn't fit in
+// a small flash program space.
+//
+// "+ 8" = 8-bit timer overflow = 8 bits = 256 cycles = Hz / 256
+// "- 8" = x256 for precision
+// For slow: "10" = CS02 | CS00 = clkIO / 1024 Hz
+// For fast: "0"  = CS00 = clkIO, no prescaling
+//
+#define SLOW_HZ_X_256 (F_CPU >> (10 + 8 - 8))  // 1171
+#define FAST_HZ_X_256 (F_CPU >> (0 + 8 - 8))
+
+#define NORMAL (1)  // 0 to make idle durations short for debugging
+#if NORMAL
+#define START_WAIT_DURATION_SECONDS (12600)  // 3.5 * 60 * 60, 3.5 hours
+#define MIN_WAIT_DURATION_SECONDS (480)      // 8 * 60, 8 minutes
+#define FLASH_COUNT (64)
+#else
+#define START_WAIT_DURATION_SECONDS (32)
+#define MIN_WAIT_DURATION_SECONDS (4)
+#define FLASH_COUNT (8)
+#endif
+#define START_INTERRUPT_COUNT                           \
+  ((START_WAIT_DURATION_SECONDS * SLOW_HZ_X_256) >> 8)
+#define MIN_INTERRUPT_COUNT                           \
+  ((MIN_WAIT_DURATION_SECONDS * SLOW_HZ_X_256) >> 8)
+
+enum {
+  STATE_POWER_DOWN,
+  STATE_INIT,
+  STATE_IDLE,
+  STATE_DREAM
+};
+
 static uint16_t interrupt_count;
+static uint16_t interrupts_left;
 static uint8_t current_led;
-static uint8_t button_was_pressed;
-static uint8_t quick_induction_count;
-static void reset_waiting_interrupts_left() {
+static uint8_t flash_count;
+static volatile uint8_t button_was_pressed;
+static volatile uint8_t quick_induction_count;
+static volatile uint8_t state;
+static void reset_idle_interrupts_left() {
   interrupts_left = interrupt_count;
   interrupt_count = interrupt_count >> 1;
   if (interrupt_count < MIN_INTERRUPT_COUNT) {
@@ -108,7 +152,7 @@ static void flash_leds(uint8_t count) {
   }
 }
 
-static void switch_to_POWER_DOWN() {
+static void start_POWER_DOWN() {
   if (state != STATE_POWER_DOWN) {
     flash_leds(4);
   }
@@ -116,7 +160,7 @@ static void switch_to_POWER_DOWN() {
 }
 
 static int is_button_pressed() {
-  return !(PINB & _BV(BUTTON));
+  return !(PINB & BUTTON);
 }
 
 static int was_button_pressed() {
@@ -137,18 +181,18 @@ static void wait_for_button_up() {
   }
 }
 
-static void switch_to_INIT() {
+static void start_INIT() {
   leds_on();
   set_slow_timer();
   state = STATE_INIT;
   reset_init_interrupts_left();
 }
 
-static void switch_to_WAITING() {
+static void start_IDLE() {
   leds_off();
   set_slow_timer();
-  state = STATE_WAITING;
-  reset_waiting_interrupts_left();
+  state = STATE_IDLE;
+  reset_idle_interrupts_left();
 
   // Hack: reset the button-pressed indicator. On the breadboard version
   // of this circuit, I was going straight into nap mode after powering on
@@ -162,13 +206,27 @@ static void reset_dream_interrupts_left() {
   interrupts_left = MACRO_WIDTH + MACRO_GAP;
 }
 
-static void switch_to_DREAM() {
+static void start_DREAM() {
   leds_off();
   set_fast_timer();
   state = STATE_DREAM;
   flash_count = FLASH_COUNT;
   current_led = LED_LEFT;
   reset_dream_interrupts_left();
+}
+
+// Allow the user to hold down the button for two seconds to power down.
+static int power_down_pressed() {
+#define MSEC_TO_WAIT (2000)
+#define WAIT_QUANTUM_MSEC (100)
+
+  for (int i = 0; i < (MSEC_TO_WAIT / WAIT_QUANTUM_MSEC); ++i) {
+    if (!is_button_pressed()) {
+      return 0;
+    }
+    _delay_ms(WAIT_QUANTUM_MSEC);
+  }
+  return 1;
 }
 
 ISR(PCINT0_vect) {
@@ -179,99 +237,92 @@ ISR(PCINT0_vect) {
 
   // Button is down. If we were powered down, let's wake up.
   if (state == STATE_POWER_DOWN) {
-    wait_for_button_up();
-    return;
-  }
-
-  int i;
-  for (i = 0; i < 20; ++i) {
-    if (!is_button_pressed()) {
-      break;
-    }
-    _delay_ms(100);
-  }
-  if (i < 20) {
-    // We're in some other state. Mark the button pressed and move on.
-    button_was_pressed = 1;
+    // fall through
   } else {
-    // The user held the button down for 2 seconds.
-    wait_for_button_up();
-    switch_to_POWER_DOWN();
+    if (power_down_pressed()) {
+      start_POWER_DOWN();
+    } else {
+      button_was_pressed = 1;
+    }
+  }
+  wait_for_button_up();
+}
+
+static void handle_end_INIT() {
+  start_IDLE();
+}
+
+static void handle_end_IDLE() {
+  start_DREAM();
+}
+
+static void handle_end_DREAM() {
+  if (current_led == LED_LEFT) {
+    current_led = LED_RIGHT;
+  } else {
+    current_led = LED_LEFT;
+  }
+  reset_dream_interrupts_left();
+  if (--flash_count == 0) {
+    start_IDLE();
+  }
+}
+
+static void handle_work_INIT() {
+}
+
+static void handle_work_IDLE() {
+  if (was_button_pressed()) {
+    start_nap_mode();
+    start_DREAM();
+  }
+}
+
+static void handle_work_DREAM() {
+  static uint8_t pwm;
+  static uint16_t transition;
+
+  if (interrupts_left >= MACRO_GAP) {
+    pwm += PWM_VAL;
+    if (pwm > transition)
+      PORTB &= ~(current_led);
+    else
+      PORTB |= current_led;
+
+    if (!pwm)
+      transition += TRANS_VAL;
+  } else {
+    pwm = transition = 0;
+    leds_off();
   }
 }
 
 ISR(TIM0_OVF_vect) {
-  if (interrupts_left == 0) {
+  if (interrupts_left-- == 0) {
     switch (state) {
-    case STATE_INIT:
-      switch_to_WAITING();
-      break;
-
-    case STATE_DREAM:
-      if (current_led == LED_LEFT) {
-        current_led = LED_RIGHT;
-      } else {
-        current_led = LED_LEFT;
+    case STATE_INIT: handle_end_INIT(); break;
+    case STATE_IDLE: handle_end_IDLE(); break;
+    case STATE_DREAM: handle_end_DREAM(); break;
+    }
+    if (interrupts_left == 0) {
+      // Programming error. Halt loudly.
+      while (1) {
+        flash_leds(255);
       }
-      reset_dream_interrupts_left();
-      if (--flash_count == 0) {
-        switch_to_WAITING();
-      }
-      break;
-
-    case STATE_WAITING:
-      switch_to_DREAM();
-      break;
     }
   } else {
-    --interrupts_left;
-
     switch (state) {
-    case STATE_INIT:
-      break;
-
-    case STATE_DREAM: {
-      static uint8_t pwm;
-      static uint16_t transition;
-
-      if (interrupts_left >= MACRO_GAP) {
-        pwm += PWM_VAL;
-        if (pwm > transition)
-          PORTB &= ~(current_led);
-        else
-          PORTB |= current_led;
-
-        if (!pwm)
-          transition += TRANS_VAL;
-      } else {
-        pwm = transition = 0;
-        leds_off();
-      }
-    }
-      break;
-
-    case STATE_WAITING:
-      if (was_button_pressed()) {
-        start_nap_mode();
-        switch_to_DREAM();
-      }
-      break;
+    case STATE_INIT: handle_work_INIT(); break;
+    case STATE_IDLE: handle_work_IDLE(); break;
+    case STATE_DREAM: handle_work_DREAM(); break;
     }
   }
-}
-
-static void enable_timer_prr() {
-  PRR = 0;  // No peripherals
-}
-
-static void disable_timer_prr() {
-  PRR = _BV(PRTIM0);  // Just the timer
 }
 
 static void power_down() {
   disable_timer_prr();
 
-  switch_to_POWER_DOWN();
+  start_POWER_DOWN();
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
   sleep_mode();
 
@@ -280,35 +331,29 @@ static void power_down() {
 }
 
 static void start_sleep_cycle() {
-  TIMSK0 = _BV(TOIE0);  // Enable timer overflow irq
+  enable_timer_interrupt();
 
   set_slow_timer();
 
   interrupt_count = START_INTERRUPT_COUNT;
   quick_induction_count = 0;
-  switch_to_INIT();
+  start_INIT();
 
   set_sleep_mode(SLEEP_MODE_IDLE);
 }
 
 int main(void) {
-  DDRB &= ~_BV(DDB2); // set button to input
-  PORTB |= _BV(BUTTON); // enable button's pull-up resistor
-  DDRB |= _BV(DDB3) | _BV(DDB4); // set LEDs to output
-
+  set_port_state();
   button_was_pressed = 0;
-
   sei();
-
-  GIMSK = _BV(PCIE);  // Enable pin-change interrupts
-  PCMSK = _BV(PCINT2);  // Mask off all but the button pin for interrupts
-
+  enable_pin_interrupts();
   state = -1;  // Ensure that the power-down flash cycle will happen
+
   while (1) {
     leds_off();
     power_down();
     start_sleep_cycle();
-    while (state != STATE_POWER_DOWN && quick_induction_count < 15) {
+    while (state != STATE_POWER_DOWN && quick_induction_count < 8) {
       sleep_mode();
     }
   }
