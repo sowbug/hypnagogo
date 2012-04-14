@@ -54,9 +54,9 @@ enum {
   STATE_DREAM
 };
 
-#define BUTTON PB4          // button, pin 3 to ground
+#define BUTTON PB2          // button, pin 7 to ground
 #define LED_LEFT _BV(PB3)   // pin 2
-#define LED_RIGHT _BV(PB2)  // pin 7
+#define LED_RIGHT _BV(PB4)  // pin 3
 #define LEDS (LED_LEFT | LED_RIGHT)
 
 static void set_fast_timer() {
@@ -294,14 +294,14 @@ static void start_sleep_cycle() {
 }
 
 int main(void) {
-  DDRB &= ~_BV(DDB4); // set button to input
+  DDRB &= ~_BV(DDB2); // set button to input
   PORTB |= _BV(BUTTON); // enable button's pull-up resistor
-  DDRB |= _BV(DDB3) | _BV(DDB2); // set LEDs to output
+  DDRB |= _BV(DDB3) | _BV(DDB4); // set LEDs to output
 
   sei();
 
   GIMSK = _BV(PCIE);  // Enable pin-change interrupts
-  PCMSK = _BV(PCINT4);  // Mask off all but the button pin for interrupts
+  PCMSK = _BV(PCINT2);  // Mask off all but the button pin for interrupts
 
   state = -1;  // Ensure that the power-down flash cycle will happen
   while (1) {
