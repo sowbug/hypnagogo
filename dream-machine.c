@@ -13,12 +13,11 @@
  *   -U lock:w:0xFF:m
  */
 
-#include <avr/io.h>
-#include <inttypes.h>
 #include <avr/interrupt.h>
+#include <avr/io.h>
 #include <avr/sleep.h>
+#include <inttypes.h>
 #include <util/delay.h>
-
 
 // START MCU-SPECIFIC -------------------------------
 
@@ -97,12 +96,13 @@ static void leds_off() {
 #define SLOW_HZ_X_256 (F_CPU >> (10 + 8 - 8))  // 1171
 #define FAST_HZ_X_256 (F_CPU >> (0 + 8 - 8))
 
-#define NORMAL (1)  // 0 to make idle durations short for debugging
-#if NORMAL
+#ifdef PRODUCTION
+// Normal cycle representing an approximately 8-hour sleep cycle
 #define START_WAIT_DURATION_SECONDS (12600)  // 3.5 * 60 * 60, 3.5 hours
 #define MIN_WAIT_DURATION_SECONDS (480)      // 8 * 60, 8 minutes
 #define FLASH_COUNT (64)
 #else
+// Short durations for easier development
 #define START_WAIT_DURATION_SECONDS (32)
 #define MIN_WAIT_DURATION_SECONDS (4)
 #define FLASH_COUNT (8)
@@ -126,6 +126,7 @@ static uint8_t flash_count;
 static volatile uint8_t button_was_pressed;
 static volatile uint8_t quick_induction_count;
 static volatile uint8_t state;
+
 static void reset_idle_interrupts_left() {
   interrupts_left = interrupt_count;
   interrupt_count = interrupt_count >> 1;
@@ -163,12 +164,6 @@ static int is_button_pressed() {
   return !(PINB & BUTTON);
 }
 
-static int was_button_pressed() {
-  uint8_t r = button_was_pressed;
-  button_was_pressed = 0;
-  return r;
-}
-
 static void wait_for_button_up() {
   _delay_ms(25);  // Debounce.
 
@@ -199,7 +194,9 @@ static void start_IDLE() {
   // with the button. I debounced and checked states, but nothing worked. I
   // see nothing like this on the real hardware. I'm wondering whether the
   // breadboard is noisy, or perhaps the ISP was sending ambiguous signals.
-  was_button_pressed();
+  //////////
+
+  ///////////////////////was_button_pressed();
 }
 
 static void reset_dream_interrupts_left() {
@@ -226,7 +223,19 @@ static int power_down_pressed() {
     }
     _delay_ms(WAIT_QUANTUM_MSEC);
   }
+  wait_for_button_up();
   return 1;
+}
+
+static void handle_button_INIT() {
+}
+
+static void handle_button_IDLE() {
+  start_nap_mode();
+  start_DREAM();
+}
+
+static void handle_button_DREAM() {
 }
 
 ISR(PCINT0_vect) {
@@ -235,17 +244,15 @@ ISR(PCINT0_vect) {
     return;
   }
 
-  // Button is down. If we were powered down, let's wake up.
-  if (state == STATE_POWER_DOWN) {
-    // fall through
+  if (power_down_pressed()) {
+    start_POWER_DOWN();
   } else {
-    if (power_down_pressed()) {
-      start_POWER_DOWN();
-    } else {
-      button_was_pressed = 1;
+    switch (state) {
+    case STATE_INIT: handle_button_INIT(); break;
+    case STATE_IDLE: handle_button_IDLE(); break;
+    case STATE_DREAM: handle_button_DREAM(); break;
     }
   }
-  wait_for_button_up();
 }
 
 static void handle_end_INIT() {
@@ -272,10 +279,6 @@ static void handle_work_INIT() {
 }
 
 static void handle_work_IDLE() {
-  if (was_button_pressed()) {
-    start_nap_mode();
-    start_DREAM();
-  }
 }
 
 static void handle_work_DREAM() {

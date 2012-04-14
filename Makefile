@@ -7,8 +7,9 @@ UISP=avrdude
 PROGRAMMER=usbtiny
 
 CC=avr-gcc
-CFLAGS=-g -Os -Wall -mcall-prologues -DF_CPU=$(F_CPU) \
-	-mmcu=$(MCU) -std=c99 -pedantic -Wundef
+CFLAGS=-g -Os -Wall -mcall-prologues -std=c99 -pedantic -Wundef \
+	-mmcu=$(MCU) \
+	-DF_CPU=$(F_CPU)
 OBJ2HEX=avr-objcopy
 
 program : $(TARGET).hex
@@ -20,6 +21,9 @@ program : $(TARGET).hex
 
 %.hex : %.obj
 	$(OBJ2HEX) -j .text -O ihex $< $@
+
+prod: CFLAGS += -DPRODUCTION=1
+prod: program
 
 clean :
 	rm -f *.hex *.obj *.o a.out
