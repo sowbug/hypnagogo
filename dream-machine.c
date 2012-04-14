@@ -26,12 +26,12 @@
 
 /* the overall pulse width and delay between pulses */
 #define MACRO_WIDTH 1500
-#define MACRO_GAP 1500
+#define MACRO_GAP 250
 
 #if 1
 // Normal
-#define START_INTERRUPT_COUNT (57582)  // 3.5 * 60 * 60 * SLOW_HZ, 30 minutes
-#define MIN_INTERRUPT_COUNT (1096)  // 4 * 60 * SLOW_HZ, 4 minutes
+#define START_INTERRUPT_COUNT (57678)  // 3.5 * 60 * 60 * SLOW_HZ, 30 minutes
+#define MIN_INTERRUPT_COUNT (2197)  // 8 * 60 * SLOW_HZ, 8 minutes
 #define FLASH_COUNT (64)
 #else
 // Debugging
@@ -75,27 +75,6 @@ static void leds_off() {
   PORTB &= ~(LEDS);
 }
 
-/*
-  Assuming bedtime of 10:30pm, will flash on this schedule:
-
-  2:00:00 AM
-  3:45:00 AM
-  4:37:30 AM
-  5:03:45 AM
-  5:16:52 AM
-  5:23:26 AM
-  5:27:26 AM
-  5:31:26 AM
-  5:35:26 AM
-  5:39:26 AM
-  5:43:26 AM
-  5:47:26 AM
-  5:51:26 AM
-  5:55:26 AM
-  5:59:26 AM
-  6:03:26 AM
-
-*/
 static volatile uint8_t state;
 static uint16_t interrupts_left;
 static uint8_t flash_count;
@@ -120,16 +99,42 @@ static void reset_init_interrupts_left() {
   interrupts_left = 9;  // about 2 seconds
 }
 
+static void flash_leds(uint8_t count) {
+  for (uint8_t i = 0; i < count; ++i) {
+    _delay_ms(50);
+    leds_on();
+    _delay_ms(5);
+    leds_off();
+  }
+}
+
 static void switch_to_POWER_DOWN() {
   if (state != STATE_POWER_DOWN) {
-    for (int i = 0; i < 10; ++i) {
-      leds_on();
-      _delay_ms(50);
-      leds_off();
-      _delay_ms(50);
-    }
+    flash_leds(4);
   }
   state = STATE_POWER_DOWN;
+}
+
+static int is_button_pressed() {
+  return !(PINB & _BV(BUTTON));
+}
+
+static int was_button_pressed() {
+  uint8_t r = button_was_pressed;
+  button_was_pressed = 0;
+  return r;
+}
+
+static void wait_for_button_up() {
+  _delay_ms(25);  // Debounce.
+
+  // Wait for user to let go of button.
+  while (is_button_pressed()) {
+    leds_on();
+    _delay_ms(5);
+    leds_off();
+    _delay_ms(250);
+  }
 }
 
 static void switch_to_INIT() {
@@ -144,6 +149,13 @@ static void switch_to_WAITING() {
   set_slow_timer();
   state = STATE_WAITING;
   reset_waiting_interrupts_left();
+
+  // Hack: reset the button-pressed indicator. On the breadboard version
+  // of this circuit, I was going straight into nap mode after powering on
+  // with the button. I debounced and checked states, but nothing worked. I
+  // see nothing like this on the real hardware. I'm wondering whether the
+  // breadboard is noisy, or perhaps the ISP was sending ambiguous signals.
+  was_button_pressed();
 }
 
 static void reset_dream_interrupts_left() {
@@ -159,27 +171,15 @@ static void switch_to_DREAM() {
   reset_dream_interrupts_left();
 }
 
-static int is_button_pressed() {
-  return !(PINB & _BV(BUTTON));
-}
-
-static int was_button_pressed() {
-  uint8_t r = button_was_pressed;
-  button_was_pressed = 0;
-  return r;
-}
-
 ISR(PCINT0_vect) {
   // We care only about a button-down event.
   if (!is_button_pressed()) {
     return;
   }
 
-  // If we were powered down, let's wake up.
+  // Button is down. If we were powered down, let's wake up.
   if (state == STATE_POWER_DOWN) {
-    while (is_button_pressed()) {
-      // Wait for user to let go of button.
-    }
+    wait_for_button_up();
     return;
   }
 
@@ -195,9 +195,7 @@ ISR(PCINT0_vect) {
     button_was_pressed = 1;
   } else {
     // The user held the button down for 2 seconds.
-    while (is_button_pressed()) {
-      // Wait for user to let go of button.
-    }
+    wait_for_button_up();
     switch_to_POWER_DOWN();
   }
 }
@@ -236,7 +234,7 @@ ISR(TIM0_OVF_vect) {
       static uint8_t pwm;
       static uint16_t transition;
 
-      if (interrupts_left >= MACRO_WIDTH) {
+      if (interrupts_left >= MACRO_GAP) {
         pwm += PWM_VAL;
         if (pwm > transition)
           PORTB &= ~(current_led);
@@ -297,6 +295,8 @@ int main(void) {
   DDRB &= ~_BV(DDB2); // set button to input
   PORTB |= _BV(BUTTON); // enable button's pull-up resistor
   DDRB |= _BV(DDB3) | _BV(DDB4); // set LEDs to output
+
+  button_was_pressed = 0;
 
   sei();
 
