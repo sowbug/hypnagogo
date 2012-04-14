@@ -25,7 +25,11 @@ program : $(TARGET).hex
 	$(OBJ2HEX) -j .text -O ihex $< $@
 
 prod: CFLAGS += -DPRODUCTION=1
-prod: program
+prod: clean program
+
+old_prod: CFLAGS += -DOLD_HARDWARE=1
+old_prod: CFLAGS += -DPRODUCTION=1
+old_prod: clean program
 
 fuse:
 	sudo $(UISP)  $(PROGRAMMER_ARGS) \

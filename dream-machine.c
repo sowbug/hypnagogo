@@ -23,13 +23,25 @@
 // Left LED on pin 2
 // Right LED on pin 3
 //
+#if !defined(OLD_HARDWARE)
+// New ISP-capable hardware
 #define BUTTON _BV(PB2)
 #define BUTTON_DD _BV(DDB2)
-#define LEDS (LED_LEFT | LED_RIGHT)
-#define LED_LEFT _BV(PB3)
-#define LED_LEFT_DD _BV(DDB3)
+#define BUTTON_PCINT _BV(PCINT2)
 #define LED_RIGHT _BV(PB4)
 #define LED_RIGHT_DD _BV(DDB4)
+#else
+// Old boneheaded hardware
+#define BUTTON _BV(PB4)
+#define BUTTON_DD _BV(DDB4)
+#define BUTTON_PCINT _BV(PCINT4)
+#define LED_RIGHT _BV(PB2)
+#define LED_RIGHT_DD _BV(DDB2)
+#endif
+
+#define LED_LEFT _BV(PB3)
+#define LED_LEFT_DD _BV(DDB3)
+#define LEDS (LED_LEFT | LED_RIGHT)
 
 static void set_fast_timer() {
   TCCR0B = _BV(CS00);
@@ -53,7 +65,7 @@ static void enable_timer_interrupt() {
 
 static void enable_pin_interrupts() {
   GIMSK = _BV(PCIE);  // Enable pin-change interrupts
-  PCMSK = _BV(PCINT2);  // Mask off all but the button pin for interrupts
+  PCMSK = BUTTON_PCINT;  // Mask off all but the button pin for interrupts
 }
 
 static void set_port_state() {
@@ -320,6 +332,7 @@ ISR(TIM0_OVF_vect) {
 
 static void power_down() {
   disable_timer_prr();
+  leds_off();
 
   start_POWER_DOWN();
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
@@ -349,7 +362,6 @@ int main(void) {
   state = -1;  // Ensure that the power-down flash cycle will happen
 
   while (1) {
-    leds_off();
     power_down();
     start_sleep_cycle();
     while (state != STATE_POWER_DOWN && quick_induction_count < 8) {
