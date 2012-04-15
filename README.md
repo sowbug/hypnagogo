@@ -14,12 +14,9 @@ at an untested [Mouser cart](http://www.mouser.com/ProjectManager/ProjectDetail.
 Features
 ========
 
-* Tuned for a typical 8- or 9-hour nighttime sleep, with a 3.5-hour delay
-  before the first induction sequence, and rapid inductions (separated by 8
-  minutes) in the final hour of sleep.
-* Nap mode, where first induction is after 16 minutes, then subsequent
-  inductions are 8 minutes long.
-* Auto-shutoff after 8 consecutive 8-minute inductions.
+* Tuned for a typical 8- or 9-hour nighttime sleep, with long separations between inductions early in the night, and rapid inductions near morning.
+* Nap mode, with quick inductions in an 80-minute program.
+* Auto-shutoff at program end.
 * Manual shutoff by holding down button for two seconds.
 * Extremely low power consumption. A 40mAh CR1220 should last months or years.
 
