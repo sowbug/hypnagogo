@@ -11,51 +11,38 @@ See [the firmware](https://github.com/sowbug/dream-machine) and
 [the hardware](https://github.com/sowbug/dream-machine-hw), and have a look
 at an untested [Mouser cart](http://www.mouser.com/ProjectManager/ProjectDetail.aspx?AccessID=e0a3dbcca8).
 
-Ingredients
-===========
+Features
+========
 
-* ATtiny13 or 13A, set to the default 1.2MHz internal oscillator.
-
-* Two through-hole LEDs, preferably red because that's supposed to get through
-  your closed eyelids more easily.
-
-* At least two resistors in the 50-250 ohm range, low enough that you can see
-  the lights in the dark, but not so high that your battery dies quickly.
-
-* A battery and a holder for it. I used a CR1220.
-
-* A momentary normally-closed switch.
+* Tuned for a typical 8- or 9-hour nighttime sleep, with a 3.5-hour delay
+  before the first induction sequence, and rapid inductions (separated by 8
+  minutes) in the final hour of sleep.
+* Nap mode, where first induction is after 16 minutes, then subsequent
+  inductions are 8 minutes long.
+* Auto-shutoff after 8 consecutive 8-minute inductions.
+* Manual shutoff by holding down button for two seconds.
+* Extremely low power consumption. A 40mAh CR1220 should last months or years.
 
 Operation
 =========
 
-When the circuit starts up, it's in the power-off state. Tap the button to
-turn it on and start the approximately 9-hour sleep cycle. Hold down for two
-seconds to turn back off again. You'll see a quick blink sequence before
-shutdown.
+When the battery is first installed, the device is in the power-off state. Tap the button to turn it on. You'll see steady lights for about two seconds. The 9-hour sleep cycle has begun. Place the board over your eyes. I use a sleep mask to hold mine in place.
 
-At the start of the sleep cycle, the device lights both LEDs for about two
-seconds just to let you know the sleep cycle began. It then turns them off and
-goes to a waiting state for about 3.5 hours. It wakes up and goes into the
-dream-induction state, pulsing each LED, alternating back and forth at about
-0.5Hz, for about 30 seconds. It then returns to the waiting state for half the
-previous time (3.5 ÷ 2 = 1.75 hours). This pattern repeats, halving the
-waiting time each time through, with at least 4 minutes separating each
-dream-induction phase.
+The sleep cycle starts with an idle state of about 3.5 hours. When idle ends, dream induction begins. During induction, the LEDs alternate gently blinking for about 30 seconds. The device then returns to idle, but the idle period each time is halved: 1.75 hours, then 52 minutes, then 26, and so on down to a minimum of 8 minutes separating each induction. After 16 consecutive eight-minute inductions, the device powers off.
 
-After 15 consecutive dream inductions at the minimum 4-minute wait time, the
-device shuts itself off.
+For example:
 
-Assuming about 8 hours of sleep starting at 10:30pm, this program will first
-blink at about 2am, then will continue blinking more frequently with a lot of
-blinking during the final hour of sleep. This pattern corresponds to a typical
-human's REM-sleep schedule (short and sparse at the beginning of sleep, long
-and frequent toward morning).
+1. Go to sleep at 10:30pm. Turn on the device.
+2. The first induction will happen around 2am.
+3. The second induction will happen one hour and 45 minutes later, at 3:45am.
+4. At 5:16am, the device will begin inductions every 8 minutes.
+5. At about 7:30am, the device shuts off.
 
-To see the LEDs blink immediately, tap the button. This ends the current
-waiting period, sets the next wait state to four times the minimum duration
-(16 minutes), and goes straight to the next dream-induction cycle. This is
-good for testing or for taking naps.
+This pattern corresponds to a typical human's REM-sleep schedule (short and sparse at the beginning of sleep, long and frequent toward morning).
+
+Nap mode starts with a button tap while the device is idling (i.e., powered on but not blinking). The only difference is that it starts with an immediate induction followed by a 16-minute idle time, and it powers off after only eight consecutive 8-minute inductions, for a total cycle of about 80 minutes.
+
+Hold the button down for two seconds to turn the device off. You'll see a quick blink sequence to confirm shutdown.
 
 To Do
 =====

@@ -3,7 +3,7 @@
  * https://github.com/sowbug/dream-machine/
  * Hardware at https://github.com/sowbug/dream-machine-hw/
  *
- * Based on http://www.instructables.com/id/The-Lucid-Dream-Machine/
+ * Inspired by http://www.instructables.com/id/The-Lucid-Dream-Machine/
  * by gmoon (Doug Garmon) and guyfrom7up (Brian _)
  *
  */
@@ -15,74 +15,7 @@
 #include <inttypes.h>
 #include <util/delay.h>
 
-// START MCU-SPECIFIC -------------------------------
-
-// ATtiny13 or ATtiny 13A
-//
-// Button between pin 7 and ground
-// Left LED on pin 2
-// Right LED on pin 3
-//
-#if !defined(OLD_HARDWARE)
-// New ISP-capable hardware
-#define BUTTON _BV(PB2)
-#define BUTTON_DD _BV(DDB2)
-#define BUTTON_PCINT _BV(PCINT2)
-#define LED_RIGHT _BV(PB4)
-#define LED_RIGHT_DD _BV(DDB4)
-#else
-// Old boneheaded hardware
-#define BUTTON _BV(PB4)
-#define BUTTON_DD _BV(DDB4)
-#define BUTTON_PCINT _BV(PCINT4)
-#define LED_RIGHT _BV(PB2)
-#define LED_RIGHT_DD _BV(DDB2)
-#endif
-
-#define LED_LEFT _BV(PB3)
-#define LED_LEFT_DD _BV(DDB3)
-#define LEDS (LED_LEFT | LED_RIGHT)
-
-static void set_fast_timer() {
-  TCCR0B = _BV(CS00);
-}
-
-static void set_slow_timer() {
-  TCCR0B = _BV(CS02) | _BV(CS00);
-}
-
-static void enable_timer_prr() {
-  PRR = _BV(PRADC);  // Timer on, ADC off.
-}
-
-static void disable_timer_prr() {
-  PRR = _BV(PRADC) | _BV(PRTIM0);  // All peripherals off.
-}
-
-static void enable_timer_interrupt() {
-  TIMSK0 = _BV(TOIE0);
-}
-
-static void enable_pin_interrupts() {
-  GIMSK = _BV(PCIE);  // Enable pin-change interrupts
-  PCMSK = BUTTON_PCINT;  // Mask off all but the button pin for interrupts
-}
-
-static void set_port_state() {
-  DDRB &= ~BUTTON_DD; // set button to input
-  PORTB |= BUTTON; // enable button's pull-up resistor
-  DDRB |= LED_LEFT_DD | LED_RIGHT_DD; // set LEDs to output
-}
-
-static void leds_on() {
-  PORTB |= (LEDS);
-}
-
-static void leds_off() {
-  PORTB &= ~(LEDS);
-}
-
-// END MCU-SPECIFIC -------------------------------
+#include "dream-attiny13.h"
 
 // We use a sort of fixed-point decimal to let us compute durations with
 // reasonable precision without bringing in FPU code that wouldn't fit in
@@ -115,19 +48,21 @@ static void leds_off() {
 // Overall pulse width and delay between pulses
 // The "+ 10" is 1024, which is close to dividing by 1,000 for msec -> sec
 #define PULSE_DURATION_MSEC (500)
-#define MACRO_WIDTH_MSEC (450)
-#define MACRO_WIDTH ((MACRO_WIDTH_MSEC * FAST_HZ_X_256) >> (8 + 10))
-#define MACRO_GAP_MSEC (PULSE_DURATION_MSEC - MACRO_WIDTH_MSEC)
-#define MACRO_GAP ((MACRO_GAP_MSEC * FAST_HZ_X_256) >> (8 + 10))
+#define PULSE_ON_MSEC (450)
+#define PULSE_ON_CYCLES ((PULSE_ON_MSEC * FAST_HZ_X_256) >> (8 + 10))
+#define PULSE_OFF_MSEC (PULSE_DURATION_MSEC - PULSE_ON_MSEC)
+#define PULSE_OFF_CYCLES ((PULSE_OFF_MSEC * FAST_HZ_X_256) >> (8 + 10))
 
 // This number isn't CPU-speed dependent, but it must be an even
 // divisor of 256. It represents the granularity of the PWM's duty
 // cycle.
-#define PWM_VAL 4
+#define PWM_SLICE (4)
 
-// Each cycle should add this number to reach 256 by the end of
-// MACRO_WIDTH cycles.
-#define TRANS_VAL (MACRO_WIDTH >> 8)
+// Each cycle should add this number to reach 256 by the halfway point
+// to the end of PULSE_ON_CYCLES cycles.
+#define ON_OFF_SLICE (PULSE_ON_CYCLES >> 8)
+
+#define SHORT_INDUCTIONS_BEFORE_POWER_DOWN (16)
 
 enum {
   STATE_POWER_DOWN,
@@ -141,20 +76,18 @@ static uint16_t interrupts_left;
 static uint8_t current_led;
 static uint8_t flash_count;
 static volatile uint8_t button_was_pressed;
-static volatile uint8_t quick_induction_count;
+static volatile uint8_t min_induction_count;
+static volatile uint8_t short_inductions_before_power_down;
 static volatile uint8_t state;
 
 static void reset_idle_interrupts_left() {
   interrupts_left = interrupt_count;
-  interrupt_count = interrupt_count >> 1;
-  if (interrupt_count < MIN_INTERRUPT_COUNT) {
+  if (interrupt_count > MIN_INTERRUPT_COUNT) {
+    interrupt_count = interrupt_count >> 1;
+  } else {
     interrupt_count = MIN_INTERRUPT_COUNT;
-    quick_induction_count++;
+    min_induction_count++;
   }
-}
-
-static void start_nap_mode() {
-  interrupts_left = MIN_INTERRUPT_COUNT * 4;
 }
 
 static void reset_init_interrupts_left() {
@@ -208,7 +141,7 @@ static void start_IDLE() {
 }
 
 static void reset_dream_interrupts_left() {
-  interrupts_left = MACRO_WIDTH + MACRO_GAP;
+  interrupts_left = PULSE_ON_CYCLES + PULSE_OFF_CYCLES;
 }
 
 static void start_DREAM() {
@@ -238,8 +171,14 @@ static int power_down_pressed() {
 static void handle_button_INIT() {
 }
 
+// Assumes we're already in the IDLE state.
+static void start_nap() {
+  interrupts_left = MIN_INTERRUPT_COUNT * 2;
+  short_inductions_before_power_down = SHORT_INDUCTIONS_BEFORE_POWER_DOWN / 2;
+}
+
 static void handle_button_IDLE() {
-  start_nap_mode();
+  start_nap();
   start_DREAM();
 }
 
@@ -290,20 +229,20 @@ static void handle_work_IDLE() {
 }
 
 static void handle_work_DREAM() {
-  static uint8_t pwm;
-  static uint16_t transition;
+  static uint8_t pwm_slices;
+  static uint16_t on_off_slices;
 
-  if (interrupts_left >= MACRO_GAP) {
-    pwm += PWM_VAL;
-    if (pwm > transition)
-      PORTB &= ~(current_led);
-    else
+  if (interrupts_left >= PULSE_OFF_CYCLES) {
+    pwm_slices += PWM_SLICE;
+    if (pwm_slices <= on_off_slices)
       PORTB |= current_led;
+     else
+      PORTB &= ~current_led;
 
-    if (!pwm)
-      transition += TRANS_VAL;
+    if (pwm_slices == 0)
+      on_off_slices += ON_OFF_SLICE;
   } else {
-    pwm = transition = 0;
+    pwm_slices = on_off_slices = 0;
     leds_off();
   }
 }
@@ -342,13 +281,14 @@ static void power_down() {
   enable_timer_prr();
 }
 
-static void start_sleep_cycle() {
+static void start_sleep_mode() {
   enable_timer_interrupt();
 
   set_slow_timer();
 
   interrupt_count = START_INTERRUPT_COUNT;
-  quick_induction_count = 0;
+  min_induction_count = 0;
+  short_inductions_before_power_down = SHORT_INDUCTIONS_BEFORE_POWER_DOWN;
   start_INIT();
 
   set_sleep_mode(SLEEP_MODE_IDLE);
@@ -363,8 +303,9 @@ int main(void) {
 
   while (1) {
     power_down();
-    start_sleep_cycle();
-    while (state != STATE_POWER_DOWN && quick_induction_count < 8) {
+    start_sleep_mode();
+    while (state != STATE_POWER_DOWN &&
+           min_induction_count < short_inductions_before_power_down) {
       sleep_mode();
     }
   }
