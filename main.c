@@ -1,7 +1,7 @@
 /*
- * Dream Machine
- * https://github.com/sowbug/dream-machine/
- * Hardware at https://github.com/sowbug/dream-machine-hw/
+ * The Hypna Go Go
+ * https://github.com/sowbug/hypnagogo/
+ * Hardware at https://github.com/sowbug/hypnagogo-hw/
  *
  * Inspired by http://www.instructables.com/id/The-Lucid-Dream-Machine/
  * by gmoon (Doug Garmon) and guyfrom7up (Brian _)
@@ -15,7 +15,7 @@
 #include <inttypes.h>
 #include <util/delay.h>
 
-#include "dream-attiny13.h"
+#include "devices/attiny13.h"
 
 // We use a sort of fixed-point decimal to let us compute durations with
 // reasonable precision without bringing in FPU code that wouldn't fit in

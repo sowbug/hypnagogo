@@ -1,4 +1,4 @@
-TARGET=dream-machine
+TARGET=hypnagogo
 MCU=attiny13a
 AVRDUDE_TARGET=t13
 F_CPU=1200000UL
@@ -21,7 +21,7 @@ program : $(TARGET).hex
 %.obj : %.o
 	$(CC) $(CFLAGS) $< -o $@
 
-%.hex : %.obj
+%.hex : main.obj
 	$(OBJ2HEX) -j .text -O ihex $< $@
 
 prod: CFLAGS += -DPRODUCTION=1

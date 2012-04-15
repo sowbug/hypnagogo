@@ -1,7 +1,7 @@
 /*
- * Dream Machine
- * https://github.com/sowbug/dream-machine/
- * Hardware at https://github.com/sowbug/dream-machine-hw/
+ * The Hypna Go Go
+ * https://github.com/sowbug/hypnagogo/
+ * Hardware at https://github.com/sowbug/hypnagogo-hw/
  *
  * Inspired by http://www.instructables.com/id/The-Lucid-Dream-Machine/
  * by gmoon (Doug Garmon) and guyfrom7up (Brian _)

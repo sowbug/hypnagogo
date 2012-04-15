@@ -1,14 +1,14 @@
-Dream Machine: Firmware and Circuit Design for Lucid-Dreaming Goggles
-=====================================================================
+The Hypna Go Go: Hypnagogic Goggles
+===================================
 
 This is adapted from an [Instructables
-project](http://www.instructables.com/id/The-Lucid-Dream-Machine/). With a
-simple ATtiny13-based circuit, this firmware helps nudge your dreaming brain
+project](http://www.instructables.com/id/The-Lucid-hypnagogo/). With a
+simple ATtiny13-based circuit, this project helps nudge your dreaming brain
 into an *Inception*-like state of awareness. At least, that's the theory. So
 far, I have slept through the whole experience and remembered nothing.
 
-See [the firmware](https://github.com/sowbug/dream-machine) and
-[the hardware](https://github.com/sowbug/dream-machine-hw), and have a look
+See [the firmware](https://github.com/sowbug/hypnagogo) and
+[the hardware](https://github.com/sowbug/hypnagogo-hw), and have a look
 at an untested [Mouser cart](http://www.mouser.com/ProjectManager/ProjectDetail.aspx?AccessID=e0a3dbcca8).
 
 Features
