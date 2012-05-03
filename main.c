@@ -95,7 +95,7 @@ static void reset_init_interrupts_left() {
 }
 
 static void flash_leds(uint8_t count) {
-  for (uint8_t i = 0; i < count; ++i) {
+  while (count--) {
     _delay_ms(50);
     leds_on();
     _delay_ms(5);
@@ -158,12 +158,13 @@ static int power_down_pressed() {
 #define MSEC_TO_WAIT (2000)
 #define WAIT_QUANTUM_MSEC (100)
 
-  for (int i = 0; i < (MSEC_TO_WAIT / WAIT_QUANTUM_MSEC); ++i) {
+  int i = (MSEC_TO_WAIT / WAIT_QUANTUM_MSEC);
+  do {
     if (!is_button_pressed()) {
       return 0;
     }
     _delay_ms(WAIT_QUANTUM_MSEC);
-  }
+  } while (--i);
   wait_for_button_up();
   return 1;
 }
