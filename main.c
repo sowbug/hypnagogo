@@ -58,9 +58,10 @@
 // cycle.
 #define PWM_SLICE (4)
 
-// Each cycle should add this number to reach 256 by the halfway point
-// to the end of PULSE_ON_CYCLES cycles.
-#define ON_OFF_SLICE (PULSE_ON_CYCLES >> 8)
+// Each cycle should add this number to reach max desired brightness by the
+// halfway point to the end of PULSE_ON_CYCLES cycles.
+//#define ON_OFF_SLICE (PULSE_ON_CYCLES >> 8)  // 100%
+#define ON_OFF_SLICE (PULSE_ON_CYCLES >> 10)  // 25% (?) brightness
 
 #define SHORT_INDUCTIONS_BEFORE_POWER_DOWN (16)
 
@@ -237,7 +238,7 @@ static void handle_work_DREAM() {
     pwm_slices += PWM_SLICE;
     if (pwm_slices <= on_off_slices)
       PORTB |= current_led;
-     else
+    else
       PORTB &= ~current_led;
 
     if (pwm_slices == 0)
