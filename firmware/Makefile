@@ -15,7 +15,7 @@ CFLAGS=-g -Os -Wall -mcall-prologues -std=c99 -pedantic -Wundef \
 OBJ2HEX=avr-objcopy
 
 program : $(TARGET).hex
-	sudo $(UISP)  $(PROGRAMMER_ARGS) \
+	$(UISP)  $(PROGRAMMER_ARGS) \
 	  -U flash:w:$(TARGET).hex
 
 %.obj : %.o
