@@ -2,4 +2,13 @@
 *.b#*
 *.s#*
 *.zip
+.DS_Store*.b#*
+*.s#*
+*.ger
+*.gpi
+*.dri
+*.xln
+*.pro
+*.zip
+eagle.epf
 .DS_Store
