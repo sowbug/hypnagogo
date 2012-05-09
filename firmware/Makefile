@@ -22,7 +22,7 @@ program : $(TARGET).hex
 	$(CC) $(CFLAGS) $< -o $@
 
 %.hex : main.obj
-	$(OBJ2HEX) -j .text -O ihex $< $@
+	$(OBJ2HEX) -j .text -j .data -O ihex $< $@
 
 prod: CFLAGS += -DPRODUCTION=1
 prod: clean program

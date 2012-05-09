@@ -66,7 +66,7 @@
 #define SHORT_INDUCTIONS_BEFORE_POWER_DOWN (16)
 
 enum {
-  STATE_POWER_DOWN,
+  STATE_POWER_DOWN = 0,
   STATE_INIT,
   STATE_IDLE,
   STATE_DREAM
@@ -79,7 +79,7 @@ static uint8_t flash_count;
 static volatile uint8_t button_was_pressed;
 static volatile uint8_t min_induction_count;
 static volatile uint8_t short_inductions_before_power_down;
-static volatile uint8_t state;
+static volatile uint8_t state = -1;
 
 static void reset_idle_interrupts_left() {
   interrupts_left = interrupt_count;
@@ -298,7 +298,6 @@ static void start_sleep_mode() {
 
 int main(void) {
   set_port_state();
-  button_was_pressed = 0;
   sei();
   enable_pin_interrupts();
   state = -1;  // Ensure that the power-down flash cycle will happen
