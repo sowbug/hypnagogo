@@ -7,9 +7,7 @@ simple ATtiny13-based circuit, this project helps nudge your dreaming brain
 into an *Inception*-like state of awareness. At least, that's the theory. So
 far, I have slept through the whole experience and remembered nothing.
 
-See [the firmware](https://github.com/sowbug/hypnagogo) and
-[the hardware](https://github.com/sowbug/hypnagogo-hw), and have a look
-at an untested [Mouser cart](http://www.mouser.com/ProjectManager/ProjectDetail.aspx?AccessID=e0a3dbcca8).
+See [the project](https://github.com/sowbug/hypnagogo) on GitHub, and have a look at an untested [Mouser cart](http://www.mouser.com/ProjectManager/ProjectDetail.aspx?AccessID=e0a3dbcca8).
 
 Features
 ========
