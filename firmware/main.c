@@ -158,7 +158,7 @@ static void start_DREAM() {
 }
 
 // Allow the user to hold down the button for two seconds to power down.
-static int power_down_pressed() {
+static uint8_t power_down_pressed() {
 #define MSEC_TO_WAIT (2000)
 #define WAIT_QUANTUM_MSEC (100)
 
