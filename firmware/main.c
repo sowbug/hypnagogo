@@ -52,6 +52,7 @@
 #define PULSE_ON_CYCLES ((PULSE_ON_MSEC * FAST_HZ_X_256) >> (8 + 10))
 #define PULSE_OFF_MSEC (PULSE_DURATION_MSEC - PULSE_ON_MSEC)
 #define PULSE_OFF_CYCLES ((PULSE_OFF_MSEC * FAST_HZ_X_256) >> (8 + 10))
+#define PULSE_CEILING_DELTA (256 / FLASH_COUNT)
 
 // This number isn't CPU-speed dependent, but it must be an even
 // divisor of 256. It represents the granularity of the PWM's duty
@@ -76,6 +77,7 @@ static uint16_t interrupt_count;
 static uint16_t interrupts_left;
 static uint8_t current_led;
 static uint8_t flash_count;
+static uint8_t pulse_ceiling;
 static volatile uint8_t button_was_pressed;
 static volatile uint8_t min_induction_count;
 static volatile uint8_t short_inductions_before_power_down;
@@ -150,6 +152,7 @@ static void start_DREAM() {
   set_fast_timer();
   state = STATE_DREAM;
   flash_count = FLASH_COUNT;
+  pulse_ceiling = 0;
   current_led = LED_LEFT;
   reset_dream_interrupts_left();
 }
@@ -213,14 +216,16 @@ static void handle_end_IDLE() {
 }
 
 static void handle_end_DREAM() {
-  if (current_led == LED_LEFT) {
-    current_led = LED_RIGHT;
-  } else {
-    current_led = LED_LEFT;
-  }
-  reset_dream_interrupts_left();
   if (--flash_count == 0) {
     start_IDLE();
+  } else {
+    if (current_led == LED_LEFT) {
+      current_led = LED_RIGHT;
+    } else {
+      current_led = LED_LEFT;
+    }
+    reset_dream_interrupts_left();
+    pulse_ceiling += PULSE_CEILING_DELTA;
   }
 }
 
@@ -241,8 +246,11 @@ static void handle_work_DREAM() {
     else
       PORTB &= ~current_led;
 
-    if (pwm_slices == 0)
-      on_off_slices += ON_OFF_SLICE;
+    if (pwm_slices == 0) {
+      if (on_off_slices <= pulse_ceiling) {
+        on_off_slices += ON_OFF_SLICE;
+      }
+    }
   } else {
     pwm_slices = on_off_slices = 0;
     leds_off();
@@ -255,12 +263,6 @@ ISR(TIM0_OVF_vect) {
     case STATE_INIT: handle_end_INIT(); break;
     case STATE_IDLE: handle_end_IDLE(); break;
     case STATE_DREAM: handle_end_DREAM(); break;
-    }
-    if (interrupts_left == 0) {
-      // Programming error. Halt loudly.
-      while (1) {
-        flash_leds(255);
-      }
     }
   } else {
     switch (state) {
